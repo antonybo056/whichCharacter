@@ -7,7 +7,24 @@
   const arena = {
     slots: [null, null], pendingSlot: null, pickSlot: 0,
     round: 0, token: 0, speed: 1, skip: false, last: null, fromLink: false,
+    // solo: oyuncu vs bilgisayar, duo: iki oyuncu aynı cihazda, watch: otomatik simülasyon
+    mode: 'solo', cancelAsk: null,
+    // Bir oyun = ilk dövüş + tek bir rövanş
+    series: { played: 0, wins: [0, 0] },
   };
+  const MATCHES_PER_GAME = 2;
+  const resetSeries = () => { arena.series = { played: 0, wins: [0, 0] }; };
+  const ROLES = {
+    solo: ['🎮 Sen', '🤖 Bilgisayar'],
+    duo: ['👤 1. Oyuncu', '👤 2. Oyuncu'],
+    watch: ['1. Savaşçı', '2. Savaşçı'],
+  };
+
+  /* Süren dövüşü (animasyon ya da bekleyen hamle seçimi) durdurur. */
+  function newToken() {
+    if (arena.cancelAsk) arena.cancelAsk();
+    return ++arena.token;
+  }
 
   const RANDOM_NAMES = ['Morgath', 'Sylvaine', 'Kael', 'Thorne', 'Lyra', 'Draven', 'Isolde', 'Rhogar',
     'Nyssa', 'Varek', 'Elowen', 'Zarek', 'Brann', 'Seraphine', 'Malakar', 'Ysolde'];
@@ -65,12 +82,24 @@
       arena.slots[target] = fighter;
     }
     arena.pendingSlot = null;
-    arena.token++;
+    newToken();
     setTheme(null);
     history.replaceState(null, '', location.pathname);
     renderSetup();
     show('arena');
   }
+
+  function setMode(mode) {
+    arena.mode = mode;
+    document.querySelectorAll('.mode').forEach((b) => {
+      const on = b.dataset.mode === mode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', String(on));
+    });
+    $('#btn-fight').textContent = mode === 'watch' ? '🍿 Dövüşü İzle' : '⚔️ Dövüşü Başlat';
+    renderSetup();
+  }
+  document.querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
   async function renderSetup() {
     await Promise.all(arena.slots.filter(Boolean).map(portraitOf));
@@ -78,8 +107,10 @@
       const btn = $(`#slot-${i}`);
       btn.replaceChildren();
       btn.classList.toggle('empty', !f);
+      const role = el('span', 'slot-role', ROLES[arena.mode][i]);
       if (!f) {
-        btn.append(el('span', 'slot-plus', '+'), el('span', 'slot-label', i === 0 ? 'Birinci savaşçıyı seç' : 'Rakibini seç'));
+        btn.style.removeProperty('--fc');
+        btn.append(role, el('span', 'slot-plus', '+'), el('span', 'slot-label', i === 0 ? 'Birinci savaşçıyı seç' : 'Rakibini seç'));
         return;
       }
       const cls = CLASSES[f.result.classId];
@@ -87,6 +118,7 @@
       const img = el('div', 'slot-img');
       img.append(thumb(f));
       btn.append(
+        role,
         img,
         el('span', 'slot-name', displayName(f)),
         el('span', 'slot-class', `${cls.emoji} ${cls.name}`),
@@ -111,10 +143,20 @@
   }
 
   document.querySelectorAll('.slot').forEach((b) => b.addEventListener('click', () => openPicker(+b.dataset.slot)));
-  $('#btn-fight').addEventListener('click', () => { arena.round = 0; startBattle(); });
+  $('#btn-fight').addEventListener('click', () => { arena.round = 0; resetSeries(); startBattle(); });
   $('#btn-arena-back').addEventListener('click', () => {
     if (App.hasResult()) show('result');
     else show('intro');
+  });
+  $('#btn-arena-exit').addEventListener('click', () => {
+    newToken();
+    arena.slots = [null, null];
+    arena.pendingSlot = null;
+    arena.fromLink = false;
+    resetSeries();
+    history.replaceState(null, '', location.pathname);
+    setTheme(null);
+    show('intro');
   });
   $('#btn-battle').addEventListener('click', () => openArena(App.currentFighter()));
   $('#btn-intro-arena').addEventListener('click', () => openArena(null));
@@ -210,19 +252,26 @@
     const [A, B] = arena.slots;
     if (!A || !B) return;
     const pair = `${A.code}~${B.code}`;
-    const sim = Battle.simulate(A.result, B.result, Battle.hash(`${pair}~${arena.round}`));
+    const seed = Battle.hash(`${pair}~${arena.round}`);
+    const interactive = arena.mode !== 'watch';
     const oddsA = Battle.odds(A.result, B.result, pair, 1000);
-    arena.last = { A, B, sim, oddsA, recorded: false };
-    history.replaceState(null, '', `#b=${pair}~${arena.round}`);
+    const fight = Battle.create(A.result, B.result, seed);
+    const sim = interactive ? null : Battle.simulate(A.result, B.result, seed);
+    arena.last = { A, B, sim, oddsA, recorded: false, interactive };
+    // Oyuncu seçimli dövüşler tekrar oynatılamaz; link yalnızca İzle modunda
+    history.replaceState(null, '', interactive ? location.pathname : `#b=${pair}~${arena.round}`);
     await Promise.all([portraitOf(A), portraitOf(B)]);
     setTheme(null);
-    renderStage(sim);
+    renderStage(fight.F);
     $('#battle-banner').hidden = !arena.fromLink;
     show('battle');
-    play(sim);
+    if (interactive) runInteractive(fight);
+    else play(sim);
   }
 
-  function renderStage(sim) {
+  function renderStage(fighters) {
+    const interactive = arena.mode !== 'watch';
+    document.querySelector('.battle').classList.toggle('interactive', interactive);
     [0, 1].forEach((i) => {
       const f = arena.slots[i];
       const cls = CLASSES[f.result.classId];
@@ -233,19 +282,25 @@
       pic.append(thumb(f, 300));
       pic.append(el('span', 'f-crown', '👑'));
       const hp = el('div', 'hp');
-      hp.append(el('i'), el('span', 'hp-text', `${sim.fighters[i].maxHp} / ${sim.fighters[i].maxHp}`));
+      hp.append(el('i'), el('span', 'hp-text', `${fighters[i].maxHp} / ${fighters[i].maxHp}`));
       box.replaceChildren(
         pic,
-        el('div', 'f-name', sim.fighters[i].name),
+        el('div', 'f-role', interactive ? ROLES[arena.mode][i] : ''),
+        el('div', 'f-name', fighters[i].name),
         el('div', 'f-class', `${cls.emoji} ${cls.name}`),
         hp,
         el('div', 'f-icons'),
       );
     });
     $('#round-no').textContent = 'Hazır';
+    const { played, wins } = arena.series;
+    $('#match-no').textContent = played === 0 ? '1. Maç' : `Rövanş · ${wins[0]}–${wins[1]}`;
     $('#battle-log').replaceChildren();
     $('#battle-end').hidden = true;
-    $('#battle-controls').hidden = false;
+    $('#battle-controls').hidden = interactive;
+    $('#move-panel').hidden = !interactive;
+    $('#move-turn').textContent = '⏳ Dövüş başlıyor…';
+    $('#move-grid').replaceChildren();
     $('#btn-speed').textContent = `⏩ Hız: ${arena.speed}x`;
   }
 
@@ -263,10 +318,10 @@
     setTimeout(() => node.classList.remove(cls), ms);
   }
 
-  function applyEntry(e, sim, animate) {
+  function applyEntry(e, fighters, animate) {
     if (e.type === 'round') $('#round-no').textContent = `${e.round}. Tur`;
     [0, 1].forEach((i) => {
-      const max = sim.fighters[i].maxHp;
+      const max = fighters[i].maxHp;
       const box = $(`#fighter-${i}`);
       const pct = (e.hp[i] / max) * 100;
       const bar = box.querySelector('.hp i');
@@ -305,15 +360,125 @@
 
   const DELAY = { intro: 1100, round: 450, attack: 1050, special: 1250, heal: 1100, dodge: 1000, status: 1000, dot: 850, end: 700 };
 
+  const delayOf = (e) => (DELAY[e.type] || 900) + (e.big ? 250 : 0);
+
+  /* İzle modu: hazır simülasyonu oynatır. */
   async function play(sim) {
-    const token = ++arena.token;
+    const token = newToken();
     arena.skip = false;
     for (const e of sim.log) {
       if (token !== arena.token) return;
-      applyEntry(e, sim, !arena.skip);
-      if (!arena.skip) await sleep(((DELAY[e.type] || 900) + (e.big ? 250 : 0)) / arena.speed);
+      applyEntry(e, sim.fighters, !arena.skip);
+      if (!arena.skip) await sleep(delayOf(e) / arena.speed);
     }
     if (token === arena.token) finish(sim);
+  }
+
+  /* Sen Oyna / İki Oyuncu: her turda hamleyi oyuncu seçer. */
+  async function runInteractive(fight) {
+    const token = newToken();
+    const human = arena.mode === 'duo' ? [true, true] : [true, false];
+    const flush = async () => {
+      for (const e of fight.drain()) {
+        if (token !== arena.token) return false;
+        applyEntry(e, fight.F, true);
+        await sleep(delayOf(e) * 0.8);
+      }
+      return token === arena.token;
+    };
+
+    if (!(await flush())) return;
+    while (!fight.done()) {
+      const order = fight.beginRound();
+      if (!(await flush())) return;
+      for (const i of order) {
+        if (fight.F[0].hp <= 0 || fight.F[1].hp <= 0) break;
+        const canAct = fight.startTurn(i);
+        if (!(await flush())) return;
+        if (!canAct) continue;
+        let move;
+        if (human[i]) {
+          move = await askMove(fight, i);
+          if (move == null || token !== arena.token) return;
+        } else {
+          setTurn(i, `🤖 ${fight.F[i].name} hamlesini düşünüyor…`);
+          $('#move-grid').replaceChildren();
+          await sleep(800);
+          if (token !== arena.token) return;
+          move = fight.aiMove(i);
+        }
+        lockMoves();
+        fight.act(i, move);
+        if (!(await flush())) return;
+        fight.endTurn(i);
+        if (!(await flush())) return;
+      }
+    }
+    const res = fight.finish();
+    if (!(await flush())) return;
+    arena.last.sim = res;
+    $('#move-panel').hidden = true;
+    setTurn(null);
+    finish(res);
+  }
+
+  function setTurn(i, text) {
+    [0, 1].forEach((k) => $(`#fighter-${k}`).classList.toggle('active-turn', k === i));
+    if (text) $('#move-turn').textContent = text;
+  }
+  function lockMoves() {
+    document.querySelectorAll('#move-grid .move').forEach((b) => { b.disabled = true; });
+    $('#move-turn').textContent = '⏳ Hamle yapılıyor…';
+  }
+
+  function blockedReason(key, me) {
+    if (key === 'defend') return 'Az önce savundun — bu tur kullanılamaz';
+    if (key === 'potion') return me.potions ? 'Canın zaten dolu' : 'İksir kalmadı';
+    if (key === 'special') return 'Bu dövüşte zaten kullanıldı';
+    return '';
+  }
+
+  /* Hamle butonlarını gösterir; oyuncunun seçtiği hamleyi döndürür (iptalde null). */
+  function askMove(fight, i) {
+    return new Promise((resolve) => {
+      const me = fight.F[i];
+      const cls = CLASSES[me.classId];
+      const av = fight.available(i);
+      $('#move-panel').style.setProperty('--fc', cls.accent);
+      setTurn(i, arena.mode === 'duo' ? `🎯 Sıra: ${me.name} (${i + 1}. Oyuncu) — hamleni seç` : `🎯 Sıra sende, ${me.name}! Hamleni seç`);
+      const M = Battle.MOVES;
+      const defs = [
+        ['attack', M.attack.icon, M.attack.name, M.attack.hint],
+        ['heavy', M.heavy.icon, M.heavy.name, M.heavy.hint],
+        ['defend', M.defend.icon, M.defend.name, M.defend.hint],
+        ['potion', M.potion.icon, `${M.potion.name} (${me.potions})`, M.potion.hint],
+        ['special', '✨', cls.ability.name, `${Battle.SPECIAL_HINT[me.classId]} · tek kullanımlık`],
+      ];
+      const grid = $('#move-grid');
+      grid.replaceChildren();
+      defs.forEach(([key, icon, name, hint], k) => {
+        const b = el('button', `move move-${key}`);
+        b.type = 'button';
+        b.disabled = !av[key];
+        b.append(
+          el('span', 'mv-icon', icon),
+          el('span', 'mv-name', name),
+          el('span', 'mv-hint', av[key] ? hint : blockedReason(key, me)),
+          el('span', 'mv-key', String(k + 1)),
+        );
+        b.addEventListener('click', () => done(key));
+        grid.append(b);
+      });
+      const onKey = (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        const n = parseInt(e.key, 10);
+        if (n >= 1 && n <= defs.length && av[defs[n - 1][0]]) done(defs[n - 1][0]);
+      };
+      document.addEventListener('keydown', onKey);
+      const cleanup = () => { document.removeEventListener('keydown', onKey); arena.cancelAsk = null; };
+      function done(key) { cleanup(); resolve(key); }
+      arena.cancelAsk = () => { cleanup(); resolve(null); };
+    });
   }
 
   $('#btn-skip').addEventListener('click', () => { arena.skip = true; });
@@ -331,10 +496,15 @@
     $(`#fighter-${1 - w}`).classList.add('loser');
     $('#battle-controls').hidden = true;
 
-    if (!arena.last.recorded && !arena.fromLink) {
+    if (!arena.last.recorded) {
       arena.last.recorded = true;
-      [A, B].forEach((f, i) => { if (f.rosterId && A.key !== B.key) Roster.record(f.rosterId, i === w); });
+      arena.series.played++;
+      arena.series.wins[w]++;
+      if (!arena.fromLink) {
+        [A, B].forEach((f, i) => { if (f.rosterId && A.key !== B.key) Roster.record(f.rosterId, i === w); });
+      }
     }
+    renderSeries(sim);
 
     $('#be-winner').textContent = `${wcls.emoji} ${sim.fighters[w].name}`;
     const left = Math.round((sim.fighters[w].hp / sim.fighters[w].maxHp) * 100);
@@ -350,10 +520,16 @@
 
     const wOdds = w === 0 ? oddsA : 1 - oddsA;
     const upset = $('#be-upset');
+    const times = Math.max(1, Math.round(wOdds * 100));
     upset.hidden = wOdds >= 0.4;
     if (wOdds < 0.4) {
-      upset.textContent = `😲 Sürpriz! Bu zafer 100 dövüşte yalnızca yaklaşık ${Math.max(1, Math.round(wOdds * 100))} kez yaşanır.`;
+      upset.textContent = arena.mode === 'solo' && w === 0
+        ? `🧠 Stratejin fark yarattı! Otomatik dövüşte bu eşleşmeyi 100 maçta yalnızca yaklaşık ${times} kez kazanırdın.`
+        : `😲 Sürpriz! Bu zafer 100 dövüşte yalnızca yaklaşık ${times} kez yaşanır.`;
     }
+    $('.odds-title small').textContent = arena.last.interactive
+      ? '(otomatik oynansaydı · 1000 simülasyon)'
+      : '(1000 dövüş simülasyonu)';
 
     const names = sim.fighters.map((f) => f.name);
     $('#be-why').replaceChildren(...Battle.analysis(A.result, B.result, oddsA, names).map((t) => el('li', null, t)));
@@ -379,16 +555,56 @@
     setTimeout(() => $('#battle-end').scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
   }
 
-  $('#btn-rematch').addEventListener('click', () => { arena.round++; startBattle(); window.scrollTo(0, 0); });
-  $('#btn-change').addEventListener('click', () => {
-    arena.token++;
+  /* Seri skoru: ilk maçtan sonra rövanş hakkı, rövanştan sonra oyun biter. */
+  function renderSeries(sim) {
+    const { played, wins } = arena.series;
+    const over = played >= MATCHES_PER_GAME;
+    const names = sim.fighters.map((f) => f.name);
+    const box = $('#be-series');
+    box.replaceChildren();
+    box.classList.toggle('over', over);
+    const score = el('div', 'series-score');
+    score.append(
+      el('span', 'series-name', names[0]),
+      el('b', null, `${wins[0]} – ${wins[1]}`),
+      el('span', 'series-name', names[1]),
+    );
+    if (over) {
+      const verdict = wins[0] === wins[1]
+        ? 'Seri berabere! İki kahraman da birer zafer aldı. ⚖️'
+        : `${names[wins[0] > wins[1] ? 0 : 1]} seriyi ${Math.max(...wins)}–${Math.min(...wins)} kazandı! 👑`;
+      box.append(el('p', 'series-title', '🏁 Oyun Bitti'), score, el('p', 'series-verdict', verdict));
+    } else {
+      box.append(el('p', 'series-title', `⚔️ ${played}. Maç Bitti`), score, el('p', 'series-verdict', 'Rövanş hakkın var — bir dövüş daha!'));
+    }
+    $('#be-eyebrow').textContent = played >= 2 ? '🏆 Rövanşın Kazananı' : '🏆 Kazanan';
+    $('#btn-rematch').hidden = over;
+    $('#btn-change').hidden = over;
+    $('#btn-end-game').hidden = !over;
+  }
+
+  function backToSetup() {
+    newToken();
     arena.fromLink = false;
+    resetSeries();
     history.replaceState(null, '', location.pathname);
     renderSetup();
     show('arena');
+  }
+
+  $('#btn-rematch').addEventListener('click', () => {
+    if (arena.series.played >= MATCHES_PER_GAME) return;
+    arena.round++;
+    startBattle();
+    window.scrollTo(0, 0);
+  });
+  $('#btn-change').addEventListener('click', backToSetup);
+  $('#btn-end-game').addEventListener('click', backToSetup);
+  $('#btn-leave-fight').addEventListener('click', () => {
+    if (confirm('Dövüşten çıkılsın mı? Bu maç sayılmayacak.')) backToSetup();
   });
   $('#btn-battle-try').addEventListener('click', () => {
-    arena.token++;
+    newToken();
     arena.fromLink = false;
     arena.pendingSlot = 0;
     history.replaceState(null, '', location.pathname);
@@ -484,22 +700,26 @@
   });
 
   $('#btn-battle-share').addEventListener('click', async () => {
-    const { sim } = arena.last;
-    const text = `⚔️ ${sim.fighters[0].name} ve ${sim.fighters[1].name} arenada karşılaştı. Kazanan: ${sim.fighters[sim.winner].name}! Dövüşü izle:`;
+    const { sim, interactive } = arena.last;
+    // Oyuncunun seçtiği hamleler tekrar oynatılamaz; o durumda oyunun ana sayfası paylaşılır.
+    const url = interactive ? `${location.origin}${location.pathname}` : battleUrl();
+    const text = interactive
+      ? `⚔️ ${sim.fighters[0].name} ve ${sim.fighters[1].name} arenada kapıştı. Kazanan: ${sim.fighters[sim.winner].name}! Sen de kahramanını yarat ve dövüş:`
+      : `⚔️ ${sim.fighters[0].name} ve ${sim.fighters[1].name} arenada karşılaştı. Kazanan: ${sim.fighters[sim.winner].name}! Dövüşü izle:`;
     try {
       const file = new File([await vsBlob()], 'arena-dovusu.png', { type: 'image/png' });
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Kim Kazanırdı?', text, url: battleUrl() });
+        await navigator.share({ files: [file], title: 'Kim Kazanırdı?', text, url });
         return;
       }
     } catch (e) {
       if (e.name === 'AbortError') return;
     }
     try {
-      await navigator.clipboard.writeText(battleUrl());
-      toast('Dövüş linki kopyalandı! 🔗');
+      await navigator.clipboard.writeText(url);
+      toast(interactive ? 'Oyun linki kopyalandı! 🔗' : 'Dövüş linki kopyalandı! 🔗');
     } catch (e) {
-      prompt('Linki kopyala:', battleUrl());
+      prompt('Linki kopyala:', url);
     }
   });
 
@@ -511,6 +731,8 @@
       arena.slots = [A, B];
       arena.round = +m[3];
       arena.fromLink = true;
+      setMode('watch');
+      resetSeries();
       startBattle();
     }
   }

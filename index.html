@@ -186,6 +186,17 @@
         <p class="step-label">⚔️ Dövüş Modu</p>
         <h2>Kim Kazanırdı?</h2>
         <p class="muted">İki kahramanı arenaya çıkar. Özellikleri, sınıf yetenekleri ve element avantajları dövüşün kaderini belirler.</p>
+        <div class="modes" role="radiogroup" aria-label="Dövüş modu">
+          <button type="button" class="mode active" data-mode="solo" role="radio" aria-checked="true">
+            <span class="mode-icon">🎮</span><b>Sen Oyna</b><small>Hamlelerini sen seç, bilgisayara karşı</small>
+          </button>
+          <button type="button" class="mode" data-mode="duo" role="radio" aria-checked="false">
+            <span class="mode-icon">👥</span><b>İki Oyuncu</b><small>Aynı cihazda sırayla hamle yapın</small>
+          </button>
+          <button type="button" class="mode" data-mode="watch" role="radio" aria-checked="false">
+            <span class="mode-icon">🍿</span><b>İzle</b><small>Kahramanlar kendi kendine dövüşsün</small>
+          </button>
+        </div>
         <div class="slots">
           <button type="button" class="slot" id="slot-0" data-slot="0"></button>
           <div class="slots-vs">VS</div>
@@ -193,7 +204,10 @@
         </div>
         <div class="matchup" id="matchup"></div>
         <div class="row between">
-          <button type="button" class="btn btn-ghost" id="btn-arena-back">← Geri</button>
+          <div class="btn-group">
+            <button type="button" class="btn btn-ghost" id="btn-arena-back">← Geri</button>
+            <button type="button" class="btn btn-ghost btn-exit" id="btn-arena-exit">🚪 Oyundan Çık</button>
+          </div>
           <button type="button" class="btn btn-primary" id="btn-fight" disabled>⚔️ Dövüşü Başlat</button>
         </div>
       </div>
@@ -209,11 +223,19 @@
         <div class="stage" id="stage">
           <div class="fighter" id="fighter-0"></div>
           <div class="stage-mid">
+            <span class="match-no" id="match-no">1. Maç</span>
             <span class="vs-badge">VS</span>
             <span class="round-no" id="round-no">Hazır</span>
           </div>
           <div class="fighter" id="fighter-1"></div>
           <div class="stage-flash" id="stage-flash"></div>
+        </div>
+        <div class="move-panel" id="move-panel" hidden>
+          <div class="move-head">
+            <p class="move-turn" id="move-turn"></p>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-leave-fight">🚪 Dövüşten Çık</button>
+          </div>
+          <div class="move-grid" id="move-grid"></div>
         </div>
         <div class="battle-log" id="battle-log" aria-live="polite"></div>
         <div class="battle-controls" id="battle-controls">
@@ -221,7 +243,8 @@
           <button type="button" class="btn btn-sm" id="btn-skip">⏭️ Sonuca Atla</button>
         </div>
         <div class="battle-end" id="battle-end" hidden>
-          <p class="eyebrow">🏆 Kazanan</p>
+          <div class="series" id="be-series"></div>
+          <p class="eyebrow" id="be-eyebrow">🏆 Kazanan</p>
           <h2 id="be-winner"></h2>
           <p class="be-sub" id="be-sub"></p>
           <div class="odds">
@@ -242,6 +265,7 @@
           </div>
           <div class="be-actions">
             <button type="button" class="btn btn-primary" id="btn-rematch">🔁 Rövanş</button>
+            <button type="button" class="btn btn-primary" id="btn-end-game" hidden>🏁 Oyunu Bitir</button>
             <button type="button" class="btn" id="btn-vs-download">🖼️ VS Görselini İndir</button>
             <button type="button" class="btn" id="btn-battle-share">🔗 Dövüşü Paylaş</button>
             <button type="button" class="btn btn-ghost" id="btn-change">🔄 Rakip Değiştir</button>

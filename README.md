@@ -39,6 +39,15 @@ Charisma      57
 
 Oluşturulan kartlar arenada karşılaşır:
 
+- **3 mod:**
+  - 🎮 **Sen Oyna:** her turda hamleni sen seçersin, bilgisayara karşı
+  - 👥 **İki Oyuncu:** aynı cihazda sırayla hamle yapılır
+  - 🍿 **İzle:** kahramanlar otomatik dövüşür
+- **Hamleler:** ⚔️ Saldır, 💥 Ağır Darbe (daha çok hasar, daha çok ıska), 🛡️ Savun (üst üste
+  kullanılamaz), 🧪 İksir (tek hak) ve ✨ sınıfın özel yeteneği (tek kullanımlık, zamanlaması sende).
+  Klavyeden 1–5 tuşlarıyla da seçilebilir.
+- **Rövanşlı oyun:** ilk dövüşten sonra bir kez rövanş hakkı; ikinci dövüşten sonra seri sonucu
+  (2–0 / 1–1) gösterilir ve oyun biter. "Oyunu Bitir" seçim menüsüne, "Oyundan Çık" ana menüye döner.
 - **Rakip seçimi:** bu cihazda oluşturulan kahramanlar (Kahraman Salonu), arkadaşının paylaştığı
   sonuç linki ya da rastgele bir rakip. İki arkadaş aynı telefonda sırayla oynayıp kartlarını dövüştürebilir.
 - **Tur tabanlı dövüş motoru:** Hız saldırı sırasını, kaçınmayı ve ekstra vuruş şansını; Zeka kritik
