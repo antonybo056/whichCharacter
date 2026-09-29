@@ -15,8 +15,50 @@
 
   const state = {
     name: '', img: null, crop: null, analysis: null,
-    answers: [], q: 0, result: null, card: null, shared: false,
+    answers: [], q: 0, result: null, card: null, portrait: null, shared: false,
   };
+
+  /* ---------- Kahraman Salonu (bu cihazda oluşturulan kahramanlar) ---------- */
+  const Roster = (() => {
+    const KEY = 'wc-roster-v1', MAX = 12;
+    const read = () => {
+      try {
+        const a = JSON.parse(localStorage.getItem(KEY) || '[]');
+        return Array.isArray(a) ? a : [];
+      } catch (e) { return []; }
+    };
+    const write = (list) => {
+      try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch (e) { return false; }
+    };
+    function list() {
+      return read().map((e) => ({ ...e, result: decodeResult(e.code) })).filter((e) => e.result);
+    }
+    function save(code, portrait, source) {
+      const id = Portrait.hash(code).toString(36);
+      const all = read();
+      const prev = all.find((e) => e.id === id);
+      let thumb = prev?.portrait || null;
+      if (portrait) {
+        const c = document.createElement('canvas');
+        c.width = c.height = 360;
+        c.getContext('2d').drawImage(portrait, 0, 0, 360, 360);
+        thumb = c.toDataURL('image/jpeg', 0.82);
+      }
+      const next = all.filter((e) => e.id !== id);
+      next.unshift({ id, code, portrait: thumb, source, w: prev?.w || 0, l: prev?.l || 0, t: Date.now() });
+      next.length = Math.min(next.length, MAX);
+      // Depolama dolarsa en eski kahramanların portrelerinden vazgeç
+      for (let i = next.length - 1; !write(next) && i >= 0; i--) next[i].portrait = null;
+      return id;
+    }
+    function remove(id) { write(read().filter((e) => e.id !== id)); }
+    function record(id, won) {
+      const all = read();
+      const e = all.find((x) => x.id === id);
+      if (e) { if (won) e.w++; else e.l++; write(all); }
+    }
+    return { list, save, remove, record };
+  })();
 
   /* ---------- Ekran yönetimi ---------- */
   function show(id) {
@@ -396,7 +438,9 @@
     }
     await sleep(250);
     state.shared = false;
-    history.replaceState(null, '', `#r=${encodeResult(state.result)}`);
+    const code = encodeResult(state.result);
+    state.rosterId = Roster.save(code, state.portrait, 'me');
+    history.replaceState(null, '', `#r=${code}`);
     showResult();
   }
 
@@ -405,6 +449,7 @@
     const cls = CLASSES[r.classId];
     const source = state.img && !state.shared ? { img: state.img, crop: state.crop } : null;
     const portrait = Portrait.stylize(source, cls, r.seed ?? Portrait.hash(r.classId + r.name));
+    state.portrait = portrait;
     state.card = Portrait.renderCard({
       portrait, cls, heroName: r.name, epithet: r.epithet, stats: r.stats,
       rarity: r.rarity, power: r.power, footer: `Hangi Fantastik Karaktersin? · ${SITE}`,
@@ -658,6 +703,29 @@
   }
   $('#btn-replay').addEventListener('click', () => { resetGame(); show('photo'); });
   $('#btn-try').addEventListener('click', () => { resetGame(); show('intro'); });
+
+  /* ---------- Arena (js/arena.js) için ortak arayüz ---------- */
+  function currentFighter() {
+    if (!state.result) return null;
+    const code = encodeResult(state.result);
+    return {
+      key: `c:${code}`, code, result: state.result, portrait: state.portrait,
+      rosterId: state.shared ? null : state.rosterId, source: state.shared ? 'friend' : 'me',
+    };
+  }
+  window.App = {
+    $, el, sleep, clamp, show, toast, setTheme,
+    encodeResult, decodeResult, buildResult, Roster, currentFighter,
+    hasResult: () => !!state.result,
+    // Yeni (başka) bir kahraman: önceki adı ve fotoğrafı da temizle
+    newHero() {
+      resetGame();
+      clearPhoto();
+      $('#hero-name').value = '';
+      show('photo');
+      setTimeout(() => $('#hero-name').focus(), 300);
+    },
+  };
 
   /* ---------- Paylaşılan link ile açılış ---------- */
   async function boot() {

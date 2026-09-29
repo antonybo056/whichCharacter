@@ -36,7 +36,10 @@
         <h1>Hangi Fantastik<br><span class="gold">Karaktersin?</span></h1>
         <p class="lead">Fotoğrafını yükle, 11 kadim soruyu cevapla. Ruhunu okuyup hangi efsanevi sınıfa ait olduğunu, özelliklerini ve kahraman portreni ortaya çıkaralım.</p>
         <div class="class-strip" id="class-strip"></div>
-        <button class="btn btn-primary btn-lg" id="btn-start">Maceraya Başla</button>
+        <div class="intro-actions">
+          <button class="btn btn-primary btn-lg" id="btn-start">Maceraya Başla</button>
+          <button class="btn btn-lg btn-arena" id="btn-intro-arena">⚔️ Arena</button>
+        </div>
         <ul class="features">
           <li><b>10</b><span>sınıf</span></li>
           <li><b>6</b><span>özellik</span></li>
@@ -117,6 +120,7 @@
         <div class="result-card">
           <div class="card-wrap" id="card-wrap"></div>
           <div class="actions">
+            <button type="button" class="btn btn-battle" id="btn-battle">⚔️ Dövüş Modu — Kim Kazanırdı?</button>
             <button type="button" class="btn btn-primary" id="btn-download">⬇️ Kartı İndir</button>
             <button type="button" class="btn" id="btn-share">📤 Paylaş</button>
             <button type="button" class="btn" id="btn-link">🔗 Linki Kopyala</button>
@@ -176,7 +180,96 @@
         </div>
       </div>
     </section>
+    <!-- ARENA: SAVAŞÇI SEÇİMİ -->
+    <section class="screen" id="screen-arena">
+      <div class="panel arena-setup">
+        <p class="step-label">⚔️ Dövüş Modu</p>
+        <h2>Kim Kazanırdı?</h2>
+        <p class="muted">İki kahramanı arenaya çıkar. Özellikleri, sınıf yetenekleri ve element avantajları dövüşün kaderini belirler.</p>
+        <div class="slots">
+          <button type="button" class="slot" id="slot-0" data-slot="0"></button>
+          <div class="slots-vs">VS</div>
+          <button type="button" class="slot" id="slot-1" data-slot="1"></button>
+        </div>
+        <div class="matchup" id="matchup"></div>
+        <div class="row between">
+          <button type="button" class="btn btn-ghost" id="btn-arena-back">← Geri</button>
+          <button type="button" class="btn btn-primary" id="btn-fight" disabled>⚔️ Dövüşü Başlat</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ARENA: DÖVÜŞ -->
+    <section class="screen" id="screen-battle">
+      <div class="shared-banner" id="battle-banner" hidden>
+        <span>⚔️ Sana bir arena dövüşü gönderildi! Kendi kahramanın kazanabilir miydi?</span>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-battle-try">Kahramanını yarat →</button>
+      </div>
+      <div class="battle">
+        <div class="stage" id="stage">
+          <div class="fighter" id="fighter-0"></div>
+          <div class="stage-mid">
+            <span class="vs-badge">VS</span>
+            <span class="round-no" id="round-no">Hazır</span>
+          </div>
+          <div class="fighter" id="fighter-1"></div>
+          <div class="stage-flash" id="stage-flash"></div>
+        </div>
+        <div class="battle-log" id="battle-log" aria-live="polite"></div>
+        <div class="battle-controls" id="battle-controls">
+          <button type="button" class="btn btn-sm" id="btn-speed">⏩ Hız: 1x</button>
+          <button type="button" class="btn btn-sm" id="btn-skip">⏭️ Sonuca Atla</button>
+        </div>
+        <div class="battle-end" id="battle-end" hidden>
+          <p class="eyebrow">🏆 Kazanan</p>
+          <h2 id="be-winner"></h2>
+          <p class="be-sub" id="be-sub"></p>
+          <div class="odds">
+            <p class="odds-title">Kazanma olasılığı <small>(1000 dövüş simülasyonu)</small></p>
+            <div class="odds-bar"><i id="odds-a"></i><i id="odds-b"></i></div>
+            <div class="odds-labels"><span id="odds-la"></span><span id="odds-lb"></span></div>
+          </div>
+          <p class="upset" id="be-upset" hidden></p>
+          <div class="be-grid">
+            <div>
+              <h3>Neden?</h3>
+              <ul class="why" id="be-why"></ul>
+            </div>
+            <div>
+              <h3>Dövüş İstatistikleri</h3>
+              <table class="be-stats" id="be-stats"></table>
+            </div>
+          </div>
+          <div class="be-actions">
+            <button type="button" class="btn btn-primary" id="btn-rematch">🔁 Rövanş</button>
+            <button type="button" class="btn" id="btn-vs-download">🖼️ VS Görselini İndir</button>
+            <button type="button" class="btn" id="btn-battle-share">🔗 Dövüşü Paylaş</button>
+            <button type="button" class="btn btn-ghost" id="btn-change">🔄 Rakip Değiştir</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <div class="modal" id="picker-modal" hidden>
+    <div class="modal-box picker">
+      <div class="picker-head">
+        <h3 id="picker-title">Savaşçı Seç</h3>
+        <button type="button" class="btn btn-ghost btn-icon" id="btn-picker-close" aria-label="Kapat">✕</button>
+      </div>
+      <h4>🏛️ Kahraman Salonu <small>(bu cihazda oluşturulanlar)</small></h4>
+      <div class="roster" id="picker-roster"></div>
+      <h4>🔗 Arkadaşının kartı</h4>
+      <div class="link-row">
+        <input id="picker-link" placeholder="Arkadaşının sonuç linkini yapıştır" autocomplete="off" spellcheck="false">
+        <button type="button" class="btn" id="btn-picker-link">Ekle</button>
+      </div>
+      <div class="row">
+        <button type="button" class="btn" id="btn-picker-random">🎲 Rastgele Rakip</button>
+        <button type="button" class="btn" id="btn-picker-new">✨ Yeni Kahraman Yarat</button>
+      </div>
+    </div>
+  </div>
 
   <div class="modal" id="camera-modal" hidden>
     <div class="modal-box">
@@ -195,5 +288,7 @@
   <script src="js/data.js"></script>
   <script src="js/portrait.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/battle.js"></script>
+  <script src="js/arena.js"></script>
 </body>
 </html>
