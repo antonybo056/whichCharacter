@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hangi Fantastik Karaktersin?</title>
+  <meta name="description" content="Fotoğrafını yükle, 11 kadim soruyu cevapla ve içindeki fantastik kahramanı keşfet. Sınıfın, özelliklerin ve kahraman portren seni bekliyor!">
+  <meta name="theme-color" content="#07060d">
+  <meta property="og:title" content="Hangi Fantastik Karaktersin?">
+  <meta property="og:description" content="Fotoğrafını yükle, soruları cevapla, içindeki kahramanı keşfet.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧙</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="bg" aria-hidden="true"></canvas>
+
+  <main id="app">
+    <!-- GİRİŞ -->
+    <section class="screen active" id="screen-intro">
+      <div class="intro">
+        <div class="sigil" aria-hidden="true">
+          <svg viewBox="0 0 200 200" class="sigil-ring">
+            <circle cx="100" cy="100" r="92" />
+            <circle cx="100" cy="100" r="78" />
+            <path d="M100 8 L180 146 L20 146 Z M100 192 L20 54 L180 54 Z" />
+            <text><textPath href="#sigil-path">ᚠᚢᚦᚨᚱᚲ ✦ ᚷᚹᚺᚾᛁᛃ ✦ ᛇᛈᛉᛊᛏᛒ ✦ ᛖᛗᛚᛜᛞᛟ ✦</textPath></text>
+            <defs><path id="sigil-path" d="M100 100 m-85 0 a85 85 0 1 1 170 0 a85 85 0 1 1 -170 0" /></defs>
+          </svg>
+          <span class="sigil-emoji" id="sigil-emoji">🧙</span>
+        </div>
+        <p class="eyebrow">✦ Kaderin seni bekliyor ✦</p>
+        <h1>Hangi Fantastik<br><span class="gold">Karaktersin?</span></h1>
+        <p class="lead">Fotoğrafını yükle, 11 kadim soruyu cevapla. Ruhunu okuyup hangi efsanevi sınıfa ait olduğunu, özelliklerini ve kahraman portreni ortaya çıkaralım.</p>
+        <div class="class-strip" id="class-strip"></div>
+        <button class="btn btn-primary btn-lg" id="btn-start">Maceraya Başla</button>
+        <ul class="features">
+          <li><b>10</b><span>sınıf</span></li>
+          <li><b>6</b><span>özellik</span></li>
+          <li><b>11</b><span>soru</span></li>
+          <li><b>∞</b><span>kahraman</span></li>
+        </ul>
+        <p class="privacy">🔒 Fotoğrafın cihazından hiç çıkmaz — tüm büyü tarayıcında gerçekleşir.</p>
+      </div>
+    </section>
+
+    <!-- FOTOĞRAF -->
+    <section class="screen" id="screen-photo">
+      <div class="panel">
+        <p class="step-label">Adım 1 / 2</p>
+        <h2>Kahramanını Tanıt</h2>
+        <label class="field">
+          <span>Kahraman adın</span>
+          <input id="hero-name" maxlength="22" placeholder="Örn. Elara" autocomplete="off" spellcheck="false">
+        </label>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Fotoğraf seç veya sürükle bırak">
+          <input type="file" id="file-input" accept="image/*" hidden>
+          <div class="dz-empty" id="dz-empty">
+            <div class="dz-icon">📸</div>
+            <p><b>Fotoğrafını sürükle bırak</b><br>ya da tıklayıp seç</p>
+            <small>Yüzünün net göründüğü bir fotoğraf en iyi sonucu verir</small>
+          </div>
+          <img id="photo-preview" alt="Seçilen fotoğraf" hidden>
+          <button type="button" class="dz-clear" id="btn-clear-photo" hidden aria-label="Fotoğrafı kaldır">✕</button>
+        </div>
+        <div class="row">
+          <button type="button" class="btn" id="btn-upload">🖼️ Fotoğraf Seç</button>
+          <button type="button" class="btn" id="btn-camera">📷 Kamerayla Çek</button>
+        </div>
+        <p class="hint" id="photo-hint">Fotoğraf eklemezsen sınıfının amblemiyle bir portre oluşturulur.</p>
+        <div class="row between">
+          <button type="button" class="btn btn-ghost" id="btn-photo-back">← Geri</button>
+          <button type="button" class="btn btn-primary" id="btn-photo-next">Sorulara Geç →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SORULAR -->
+    <section class="screen" id="screen-quiz">
+      <div class="panel quiz">
+        <div class="quiz-top">
+          <button type="button" class="btn btn-ghost btn-icon" id="btn-quiz-back" aria-label="Önceki soru">←</button>
+          <div class="progress" aria-hidden="true"><div class="progress-bar" id="progress-bar"></div></div>
+          <span class="q-count" id="q-count">1 / 11</span>
+        </div>
+        <div class="q-body" id="q-body"></div>
+      </div>
+    </section>
+
+    <!-- RİTÜEL -->
+    <section class="screen" id="screen-loading">
+      <div class="ritual">
+        <div class="ritual-circle" aria-hidden="true">
+          <svg viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="90" class="rc-a" />
+            <circle cx="100" cy="100" r="70" class="rc-b" />
+            <path d="M100 30 L160 135 L40 135 Z" class="rc-c" />
+            <path d="M100 170 L40 65 L160 65 Z" class="rc-c" />
+          </svg>
+          <span id="ritual-emoji">🔮</span>
+        </div>
+        <h2>Ritüel Başladı</h2>
+        <ul class="ritual-steps" id="ritual-steps"></ul>
+      </div>
+    </section>
+
+    <!-- SONUÇ -->
+    <section class="screen" id="screen-result">
+      <div class="shared-banner" id="shared-banner" hidden>
+        <span id="shared-text"></span>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-try">Sen de keşfet →</button>
+      </div>
+      <div class="result">
+        <div class="result-card">
+          <div class="card-wrap" id="card-wrap"></div>
+          <div class="actions">
+            <button type="button" class="btn btn-primary" id="btn-download">⬇️ Kartı İndir</button>
+            <button type="button" class="btn" id="btn-share">📤 Paylaş</button>
+            <button type="button" class="btn" id="btn-link">🔗 Linki Kopyala</button>
+            <button type="button" class="btn btn-ghost" id="btn-replay">🔁 Tekrar Oyna</button>
+          </div>
+        </div>
+
+        <div class="result-info">
+          <p class="eyebrow">Your Character · Senin Karakterin</p>
+          <div class="result-head">
+            <span class="r-emoji" id="r-emoji"></span>
+            <div>
+              <h2 id="r-name"></h2>
+              <p class="r-en" id="r-en"></p>
+            </div>
+          </div>
+          <div class="badges" id="r-badges"></div>
+          <p class="epithet" id="r-epithet"></p>
+          <p class="desc" id="r-desc"></p>
+          <blockquote id="r-motto"></blockquote>
+
+          <div class="block">
+            <h3>Özellikler</h3>
+            <div class="stats-wrap">
+              <div class="stats" id="r-stats"></div>
+              <div class="radar" id="r-radar"></div>
+            </div>
+          </div>
+
+          <div class="block ability">
+            <h3>Özel Yetenek</h3>
+            <p class="ability-name" id="r-ability-name"></p>
+            <p id="r-ability-text"></p>
+          </div>
+
+          <div class="block">
+            <h3>Kahraman Dosyası</h3>
+            <dl class="info-grid" id="r-info"></dl>
+          </div>
+
+          <div class="block two">
+            <div>
+              <h3>Güçlü Yönler</h3>
+              <div class="chips" id="r-strengths"></div>
+            </div>
+            <div>
+              <h3>Zayıf Nokta</h3>
+              <p id="r-weakness"></p>
+            </div>
+          </div>
+
+          <div class="block">
+            <h3>Ruh Haritası</h3>
+            <p class="muted">Ruhunun hangi sınıflara ne kadar yakın olduğu</p>
+            <div class="matches" id="r-matches"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal" id="camera-modal" hidden>
+    <div class="modal-box">
+      <h3>📷 Kahraman Pozu</h3>
+      <div class="cam-frame"><video id="cam-video" autoplay playsinline muted></video></div>
+      <p class="hint" id="cam-error" hidden></p>
+      <div class="row between">
+        <button type="button" class="btn btn-ghost" id="btn-cam-cancel">İptal</button>
+        <button type="button" class="btn btn-primary" id="btn-cam-shot">📸 Çek</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/portrait.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
